@@ -3,20 +3,19 @@ package network
 import (
 	"testing"
 
-	"github.com/DevellSoftware/metis/pkg/activation"
-	"github.com/DevellSoftware/metis/pkg/log"
-	"github.com/DevellSoftware/metis/pkg/network/layer"
-	"github.com/DevellSoftware/metis/pkg/tensor"
+	"github.com/DevellSoftware/metis-engine/pkg/activation"
+	"github.com/DevellSoftware/metis-engine/pkg/network/layer"
+	"github.com/DevellSoftware/metis-engine/pkg/tensor"
 )
 
 func TestFeedForward(t *testing.T) {
 	n := NewNetwork()
 
 	n.Add(layer.NewDense(2, activation.LinearFunction))
-	n.Add(layer.NewDense(2, activation.SigmoidFunction))
-	n.Add(layer.NewDense(1, activation.SigmoidFunction))
+	n.Add(layer.NewDense(2, activation.ReLUFunction))
+	n.Add(layer.NewDense(1, activation.ReLUFunction))
 
-	epochs := 30
+	epochs := 100
 	lr := 0.1
 
 	for i := 0; i < epochs; i++ {
@@ -32,15 +31,16 @@ func TestFeedForward(t *testing.T) {
 		t.Error(error)
 	}
 
-	log.Log("Result")
-	result.PrintDebug()
-
 	result, error = n.Predict(tensor.NewTensor(tensor.FromArray([]float64{0, 0})))
 
 	if error != nil {
 		t.Error(error)
 	}
 
-	log.Log("Result")
 	result.PrintDebug()
+
+	for _, layer := range n.layers {
+		layer.Output().PrintDebug()
+		layer.Weights().PrintDebug()
+	}
 }

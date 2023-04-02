@@ -4,9 +4,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/DevellSoftware/metis/pkg/activation"
-	"github.com/DevellSoftware/metis/pkg/log"
-	"github.com/DevellSoftware/metis/pkg/tensor"
+	"github.com/DevellSoftware/metis-engine/pkg/activation"
+	"github.com/DevellSoftware/metis-engine/pkg/log"
+	"github.com/DevellSoftware/metis-engine/pkg/tensor"
 )
 
 type Dense struct {
@@ -51,9 +51,6 @@ func (d *Dense) initializeWeights() {
 					tensor.NewIndex(neuronInputIndex, neuronIndex),
 					2*rand.Float64()-1,
 				)
-
-				log.Log("Initialized weights for layer with size %d", d.size)
-				d.weights.PrintDebug()
 			}
 		}
 	}
@@ -98,6 +95,12 @@ func (d *Dense) Error() *tensor.Tensor {
 
 	if d.output == nil {
 		substracted := d.targetOutput.Subtract(d.value)
+		log.Log("D.value")
+		d.value.PrintDebug()
+		log.Log("targetOutput")
+		d.targetOutput.PrintDebug()
+		log.Log("substracted")
+		substracted.PrintDebug()
 
 		return substracted
 	} else {
@@ -110,13 +113,10 @@ func (d *Dense) Error() *tensor.Tensor {
 
 			for j := 0; j < d.output.Size(); j++ {
 				errors[i] += d.output.Weights().At(i, j).Float() * nextLayerErrors.At(j).Float()
-			}
-
-			if errors[i] > 100 || errors[i] < -100 {
-				log.Log("Error bigger than 100, %f, %f, %f", errors[i], nextLayerErrors.At(i).Float(), d.output.Weights().At(i, 0).Float())
-				nextLayerErrors.PrintDebug()
+				log.Log("Error: %v, i: %d, j: %d, weight: %f, nextLayerError: %f", errors[i], i, j, d.output.Weights().At(i, j).Float(), nextLayerErrors.At(j).Float())
 			}
 		}
+
 		return tensor.NewTensor(tensor.FromArray(errors))
 	}
 }
@@ -143,9 +143,10 @@ func (d *Dense) Backward(learningRate float64) {
 						d.value.At(0, neuronIndex).Float(),
 					)
 
-				log.Log("input output %f", d.input.Output().At(0, neuronInputIndex).Float())
-				log.Log("error %f", error.At(neuronIndex).Float())
-				log.Log("delta %f", delta)
+				log.Log("D VALUE")
+				d.value.PrintDebug()
+
+				log.Log("Delta: %f, error: %f, input: %f, activation: %f", delta, error.At(neuronIndex).Float(), d.input.Output().At(0, neuronInputIndex).Float(), activation.ActivationFunction(d.activation).Derivative(d.value.At(0, neuronIndex).Float()))
 				d.weights.Set(index, d.weights.Get(index).Float()+delta)
 			}
 		}

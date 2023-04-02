@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/DevellSoftware/go-messenger/pkg/messaging"
-	"github.com/DevellSoftware/metis/pkg/log"
+	"github.com/DevellSoftware/metis-engine/pkg/log"
 	"github.com/lovoo/goka"
 )
 

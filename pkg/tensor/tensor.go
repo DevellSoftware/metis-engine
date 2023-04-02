@@ -5,8 +5,8 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/DevellSoftware/metis/pkg/activation"
-	"github.com/DevellSoftware/metis/pkg/log"
+	"github.com/DevellSoftware/metis-engine/pkg/activation"
+	"github.com/DevellSoftware/metis-engine/pkg/log"
 )
 
 type Tensor struct {

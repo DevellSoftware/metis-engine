@@ -1,4 +1,4 @@
-module github.com/DevellSoftware/metis
+module github.com/DevellSoftware/metis-engine
 
 go 1.20
 

@@ -1,6 +1,6 @@
 package layer
 
-import "github.com/DevellSoftware/metis/pkg/tensor"
+import "github.com/DevellSoftware/metis-engine/pkg/tensor"
 
 type Layer interface {
 	Output() *tensor.Tensor

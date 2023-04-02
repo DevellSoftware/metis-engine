@@ -3,9 +3,8 @@ package network
 import (
 	"errors"
 
-	"github.com/DevellSoftware/metis/pkg/log"
-	"github.com/DevellSoftware/metis/pkg/network/layer"
-	"github.com/DevellSoftware/metis/pkg/tensor"
+	"github.com/DevellSoftware/metis-engine/pkg/network/layer"
+	"github.com/DevellSoftware/metis-engine/pkg/tensor"
 )
 
 type Network struct {
@@ -48,12 +47,6 @@ func (n *Network) Train(input *tensor.Tensor, expectedOutput *tensor.Tensor, lea
 	n.layers[0].Set(input.Flip())
 	n.layers[0].Forward()
 
-	log.Log("Output")
-	n.Output().PrintDebug()
-
-	n.layers[len(n.layers)-1].Output().PrintDebug()
-
 	n.layers[len(n.layers)-1].SetTargetOutput(expectedOutput)
-
 	n.layers[len(n.layers)-1].Backward(learningRate)
 }
