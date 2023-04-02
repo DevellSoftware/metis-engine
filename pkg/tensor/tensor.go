@@ -1,0 +1,339 @@
+package tensor
+
+import (
+	"fmt"
+	"math"
+	"strconv"
+
+	"github.com/DevellSoftware/metis/pkg/activation"
+	"github.com/DevellSoftware/metis/pkg/log"
+)
+
+type Tensor struct {
+	id                string
+	values            map[int]Value
+	indexes           map[int]Index
+	currentValueIndex int
+	rank              int
+	logEnabled        bool
+	maxIndex          []int
+}
+
+func NewTensor(constructs ...TensorConstruct) *Tensor {
+	t := Tensor{
+		id:                NewID(),
+		values:            make(map[int]Value),
+		indexes:           make(map[int]Index),
+		logEnabled:        false,
+		currentValueIndex: 0,
+	}
+
+	for _, construct := range constructs {
+		construct(&t)
+	}
+
+	return &t
+}
+
+func NewVector(values []float64) *Tensor {
+	t := NewTensor(WithRank(1))
+
+	for index, value := range values {
+		t.Set(NewIndex(0, index), value)
+	}
+
+	return t
+}
+
+func NewNull() *Tensor {
+	return NewTensor()
+}
+
+func (t *Tensor) IsNull() bool {
+	return len(t.values) == 0
+}
+
+func (t *Tensor) log(message string, args ...interface{}) {
+	if t.logEnabled == false {
+		return
+	}
+}
+
+func (t *Tensor) Set(index Index, value interface{}) {
+	for indexNumber, indexValue := range t.indexes {
+		if indexValue.Equals(index) {
+			if math.IsNaN(value.(float64)) {
+				log.Log("Number is NAN")
+				panic("nan")
+			}
+			t.values[indexNumber] = NewValue(value)
+			return
+		}
+	}
+
+	t.values[t.currentValueIndex] = NewValue(value)
+	t.indexes[t.currentValueIndex] = index.Normalize()
+	t.currentValueIndex++
+
+	if len(index.Parts()) > len(t.maxIndex) {
+		for i := len(t.maxIndex); i < len(index.Parts()); i++ {
+			t.maxIndex = append(t.maxIndex, index.Parts()[i])
+		}
+	}
+
+	for i, part := range index.Parts() {
+		if part > t.maxIndex[i] {
+			t.maxIndex[i] = part
+		}
+	}
+}
+
+func (t *Tensor) Get(index Index) Value {
+	for indexNumber, indexValue := range t.indexes {
+		if indexValue.Equals(index) {
+			return t.values[indexNumber]
+		}
+	}
+
+	log.Log("#f undefined value at index %v", index.String())
+
+	for indexindex, index := range t.indexes {
+		log.Log("#f %v", index.String())
+		log.Log("#f %v", t.values[indexindex].String())
+	}
+
+	return NewUndefinedValue()
+}
+
+func (t *Tensor) ToArray() interface{} {
+	if t.rank == 1 {
+		array := []float64{}
+
+		for i := 0; i < t.MaxIndex(0); i++ {
+			array = append(array, t.At(i).Float())
+		}
+
+		return array
+	}
+
+	if t.rank == 2 {
+		array := [][]float64{}
+
+		for i := 0; i < t.MaxIndex(0); i++ {
+			array = append(array, []float64{})
+
+			for j := 0; j < t.MaxIndex(1); j++ {
+				array[i] = append(array[i], t.At(i, j).Float())
+			}
+		}
+
+		return array
+	}
+
+	if t.rank == 3 {
+		array := [][][]float64{}
+
+		for i := 0; i < t.MaxIndex(0); i++ {
+			array = append(array, [][]float64{})
+
+			for j := 0; j < t.MaxIndex(1); j++ {
+				array[i] = append(array[i], []float64{})
+
+				for k := 0; k < t.MaxIndex(2); k++ {
+					array[i][j] = append(array[i][j], t.At(i, j, k).Float())
+				}
+			}
+		}
+
+		return array
+	}
+
+	panic("unhandled rank")
+}
+
+func (t *Tensor) At(indexes ...int) Value {
+	return t.Get(NewIndex(indexes...))
+}
+
+func (t *Tensor) Append(value interface{}) {
+	t.Set(NewIndex(len(t.values)), value)
+}
+
+func (t *Tensor) PrintDebug() {
+	log.Log("#i\n%v", t.MatrixString())
+}
+
+func (t *Tensor) Multiply(other *Tensor) *Tensor {
+	result := NewTensor(WithRank(2))
+
+	/*
+					  | 3 4 3 |
+					  | 5 6 3 |
+				x
+					  | 1 |
+					  | 2 |
+		        | 5 |
+	*/
+	if t.Cols() != other.Rows() {
+		t.PrintDebug()
+		other.PrintDebug()
+		panic(fmt.Sprintf("rows count mismatch, %d - %d", t.Rows(), other.Cols()))
+	}
+
+	for y := 0; y < t.Rows(); y++ {
+		sum := 0.0
+
+		for x := 0; x < t.Cols(); x++ {
+			sum += t.At(x, y).Float() * other.At(0, x).Float()
+		}
+
+		result.Set(NewIndex(0, y), sum)
+	}
+
+	return result
+}
+
+func (t *Tensor) Sum(axis int) *Tensor {
+	result := NewTensor(WithRank(2))
+
+	for y := 0; y < t.Rows(); y++ {
+		sum := 0.0
+		for x := 0; x < t.Cols(); x++ {
+			sum += t.At(x, y).Float()
+		}
+
+		result.Set(NewIndex(0, y), sum)
+	}
+
+	return result
+}
+
+func (t *Tensor) Shape() []int {
+	return []int{t.MaxIndex(0) + 1, t.MaxIndex(1) + 1, t.MaxIndex(2) + 1}
+}
+
+func (t *Tensor) MaxIndex(axis int) int {
+	if axis == 2 {
+		if len(t.maxIndex) < 3 {
+			return 0
+		} else {
+			return t.maxIndex[2]
+		}
+	}
+
+	if axis == 1 {
+		if len(t.maxIndex) < 2 {
+			return 0
+		} else {
+			return t.maxIndex[1]
+		}
+	}
+
+	if axis == 0 {
+		if len(t.maxIndex) < 1 {
+			return 0
+		} else {
+			return t.maxIndex[0]
+		}
+	}
+
+	panic("unhandled axis")
+}
+
+func (t *Tensor) ValuesString() string {
+	result := ""
+
+	for indexNumber, value := range t.values {
+		indexValue := t.indexes[indexNumber]
+		result += indexValue.String() + " -> " + value.String() + " / "
+	}
+
+	return result
+}
+
+func (t *Tensor) MatrixString() string {
+	result := ""
+
+	if t.rank == 1 {
+		result = "| "
+		for i := 0; i <= t.MaxIndex(0); i++ {
+			result += fmt.Sprintf("%f ", t.At(i).Float())
+		}
+		result += "|\n"
+	} else if t.rank == 2 {
+		for y := 0; y <= t.MaxIndex(1); y++ {
+			result += "| "
+			for x := 0; x <= t.MaxIndex(0); x++ {
+				result += t.At(x, y).String() + " "
+			}
+			result += "|\n"
+		}
+	} else if t.rank == 3 {
+		for z := 0; z <= t.MaxIndex(2); z++ {
+			result += fmt.Sprintf("z = %d\n", z)
+
+			for y := 0; y <= t.MaxIndex(1); y++ {
+				result += "| "
+				for x := 0; x <= t.MaxIndex(0); x++ {
+					result += t.At(x, y, z).String() + " "
+				}
+				result += "|\n"
+			}
+		}
+	} else {
+		panic("unhandled rank " + strconv.Itoa(t.rank))
+	}
+
+	return result
+}
+
+func (t *Tensor) Rows() int {
+	return t.MaxIndex(1) + 1
+}
+
+func (t *Tensor) Cols() int {
+	return t.MaxIndex(0) + 1
+}
+
+func (t *Tensor) Copy() Tensor {
+	return *t
+}
+
+func (t *Tensor) Flip() *Tensor {
+	if t.rank == 1 {
+		newRank := 2
+
+		result := NewTensor(WithRank(newRank))
+
+		for indexNumber, value := range t.values {
+			indexValue := t.indexes[indexNumber]
+			result.Set(NewIndex(0, indexValue.index[0]), value.Float())
+		}
+
+		return result
+	}
+
+	panic("unhandled rank")
+}
+
+func (t *Tensor) Subtract(other *Tensor) *Tensor {
+	result := NewTensor(WithRank(t.rank))
+
+	for indexNumber, value := range t.values {
+		indexValue := t.indexes[indexNumber]
+		result.Set(indexValue, value.Float()-other.Get(indexValue).Float())
+	}
+
+	return result
+}
+
+func (t *Tensor) Activate(activationType activation.ActivationType) *Tensor {
+	result := NewTensor(WithRank(t.rank))
+
+	for indexNumber, value := range t.values {
+		indexValue := t.indexes[indexNumber]
+		result.Set(indexValue, activation.ActivationFunction(activationType).Activate(value.Float()))
+	}
+
+	return result
+}
